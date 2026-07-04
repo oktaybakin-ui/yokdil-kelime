@@ -240,24 +240,6 @@ function pushCloud(){if(!sb||!user)return;clearTimeout(pushT);pushT=setTimeout(a
    const {error}=await sb.from('user_state').upsert({user_id:user.id,prog,meta,updated_at:new Date().toISOString()});
    if(dot)dot.textContent=error?'⚠ hata':'☁ kayıtlı';},800);}
 if(sb)sb.auth.onAuthStateChange((_e,sess)=>{user=sess?sess.user:null;renderAuth();if(user)hideLogin();else loginOverlay();});
-refreshAuth();alert('Kayıt tamam, giriş yapıldı. İlerlemen buluta kaydediliyor.');}}
-async function signIn(){if(!sb){alert('Sunucuya bağlanılamadı (çevrimdışı). Yayınlanan adresten aç.');return;}const u=aemv().trim().toLowerCase(),pw=apwv();const em=u.includes('@')?u:u+'@yokdil.app';const {error}=await sb.auth.signInWithPassword({email:em,password:pw});
- if(error){alert('Giriş hatası: '+error.message);return;}await refreshAuth();}
-async function signOut(){if(sb)await sb.auth.signOut();user=null;renderAuth();}
-async function pullCloud(){if(!sb||!user)return;
- const {data,error}=await sb.from('user_state').select('prog,meta').eq('user_id',user.id).maybeSingle();
- if(error){console.warn(error);return;}
- if(data&&data.prog&&Object.keys(data.prog).length){const cp=data.prog,cm=data.meta||{};const merged={...prog};
-   for(const k in cp){if(!merged[k]||((cp[k].reps||0)>=(merged[k].reps||0)))merged[k]=cp[k];}
-   prog=merged;save(false);
-   if(cm&&cm.newLimit!==undefined){meta=Object.assign({},meta,cm);saveMeta(false);}
- } else {pushCloud();}
- build();}
-function pushCloud(){if(!sb||!user)return;clearTimeout(pushT);pushT=setTimeout(async()=>{
-   const dot=document.getElementById('syncdot');if(dot)dot.textContent='⟳';
-   const {error}=await sb.from('user_state').upsert({user_id:user.id,prog,meta,updated_at:new Date().toISOString()});
-   if(dot)dot.textContent=error?'⚠ hata':'☁ kayıtlı';},800);}
-sb.auth.onAuthStateChange((_e,sess)=>{user=sess?sess.user:null;renderAuth();});
 refreshAuth();
 
 setLevel('ALL');
