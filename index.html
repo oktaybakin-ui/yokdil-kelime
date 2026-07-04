@@ -217,7 +217,7 @@ async function doLogin(){var msg=document.getElementById('lmsg');
  msg.style.color='#94a3b8';msg.textContent='Giriş yapılıyor...';
  var r=await sb.auth.signInWithPassword({email:em,password:pw});
  if(r.error){msg.style.color='#ef4444';msg.textContent='Giriş hatası: '+r.error.message;return;}
- await refreshAuth();}
+ user=(r.data&&r.data.user)||null;renderAuth();hideLogin();try{await pullCloud();}catch(e){build();}}
 function renderAuth(){var el=document.getElementById('auth');if(!el)return;
  el.innerHTML=user?('<span style=\'color:#22c55e\'>☁ '+((user.user_metadata&&user.user_metadata.username)||user.email)+'</span> <span id=\'syncdot\' style=\'color:#94a3b8;font-size:12px\'></span> <button class=\'reset\' onclick=\'signOut()\'>Çıkış</button>'):'';}
 async function refreshAuth(){
