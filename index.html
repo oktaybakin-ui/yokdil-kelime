@@ -186,21 +186,61 @@ function filterList(q){q=q.toLowerCase().trim();rowsHtml(pool().filter(d=>!q||d.
 function reset(){if(confirm('Tüm ilerleme ve istatistik silinsin mi?')){prog={};meta={date:today(),newCount:0,doneCount:0,newLimit:meta.newLimit,algo:meta.algo,ret:meta.ret};save();saveMeta();build()}}
 document.addEventListener('keydown',e=>{if(tab!=='study')return;if(e.code==='Space'){e.preventDefault();flip()}else if(flipped&&['1','2','3','4'].includes(e.key))ans(+e.key)});
 
-// ---- Supabase bulut senkron ----
+// ---- Supabase bulut senkron + GİRİŞ KAPISI ----
 const SUPA_URL='https://dajnpoxmatubkfwkigdt.supabase.co';
 const SUPA_KEY='sb_publishable_mTg975mNSmqF1DaTuyuJhQ_oVuTG3gw';
 let sb=null;try{if(window.supabase)sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){console.warn('supabase yok',e);}
 let user=null,pushT=null;
-function aemv(){return (document.getElementById('aem')||{}).value||''}
-function apwv(){return (document.getElementById('apw')||{}).value||''}
-function renderAuth(){const el=document.getElementById('auth');if(!el)return;
- if(user)el.innerHTML=`<span style="color:#22c55e">☁ ${(user.user_metadata&&user.user_metadata.username)||user.email}</span> <span id="syncdot" style="color:#94a3b8;font-size:12px"></span> <button class="reset" onclick="signOut()">Çıkış</button>`;
- else if(!sb)el.innerHTML=`<span style="color:#94a3b8;font-size:12px">çevrimdışı — giriş için yayınlanan adresi kullan</span>`; else el.innerHTML=`<input id="aem" class="ain" placeholder="kullanıcı adı" autocapitalize="off"><input id="apw" class="ain" type="password" placeholder="şifre"><button class="reset" onclick="signIn()">Giriş</button>`;}
-async function refreshAuth(){if(!sb){renderAuth();return;}try{const {data}=await sb.auth.getSession();user=data.session?data.session.user:null;}catch(e){user=null;}renderAuth();if(user)await pullCloud();}
-async function signUp(){const em=aemv(),pw=apwv();if(!em||pw.length<6){alert('E-posta ve en az 6 haneli şifre gir.');return;}
- const {data,error}=await sb.auth.signUp({email:em,password:pw});
- if(error){alert('Kayıt hatası: '+error.message);return;}
- if(!data.session){alert('E-postana bir onay linki gönderildi. Onayladıktan sonra Giriş yap.');}else{await refreshAuth();alert('Kayıt tamam, giriş yapıldı. İlerlemen buluta kaydediliyor.');}}
+function loginOverlay(){let o=document.getElementById('login');
+ if(!o){o=document.createElement('div');o.id='login';
+  o.style.cssText='position:fixed;inset:0;z-index:100;background:#0f172a;display:flex;align-items:center;justify-content:center;padding:24px';
+  o.innerHTML='<div style=\'max-width:340px;width:100%;text-align:center\'>'+
+   '<div style=\'font-size:24px;font-weight:800;color:#38bdf8;margin-bottom:4px\'>YÖKDİL Sağlık</div>'+
+   '<div style=\'color:#94a3b8;margin-bottom:18px\'>Kelime çalışması · giriş yap</div>'+
+   '<input id=\'lem\' placeholder=\'kullanıcı adı\' autocapitalize=\'off\' autocorrect=\'off\' style=\'width:100%;padding:12px;margin:6px 0;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:16px\'>'+
+   '<input id=\'lpw\' type=\'password\' placeholder=\'şifre\' style=\'width:100%;padding:12px;margin:6px 0;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:16px\'>'+
+   '<button id=\'lbtn\' style=\'width:100%;padding:13px;margin-top:8px;border:0;border-radius:10px;background:#38bdf8;color:#04263a;font-weight:700;font-size:16px;cursor:pointer\'>Giriş</button>'+
+   '<div id=\'lmsg\' style=\'color:#ef4444;font-size:13px;margin-top:10px;min-height:18px\'></div></div>';
+  document.body.appendChild(o);
+  document.getElementById('lbtn').onclick=doLogin;
+  document.getElementById('lpw').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});}
+ o.style.display='flex';
+ if(!sb){var m=document.getElementById('lmsg');if(m)m.textContent='Sunucuya bağlanılamadı. İnternet gerekiyor.';}
+ setTimeout(function(){var el=document.getElementById('lem');if(el)el.focus();},60);}
+function hideLogin(){var o=document.getElementById('login');if(o)o.style.display='none';}
+async function doLogin(){var msg=document.getElementById('lmsg');
+ if(!sb){msg.style.color='#ef4444';msg.textContent='Sunucuya bağlanılamadı.';return;}
+ var u=((document.getElementById('lem').value||'').trim().toLowerCase());
+ var pw=(document.getElementById('lpw').value||'');
+ if(!u||!pw){msg.style.color='#ef4444';msg.textContent='Kullanıcı adı ve şifre gir.';return;}
+ var em=u.indexOf('@')>-1?u:u+'@yokdil.app';
+ msg.style.color='#94a3b8';msg.textContent='Giriş yapılıyor...';
+ var r=await sb.auth.signInWithPassword({email:em,password:pw});
+ if(r.error){msg.style.color='#ef4444';msg.textContent='Giriş hatası: '+r.error.message;return;}
+ await refreshAuth();}
+function renderAuth(){var el=document.getElementById('auth');if(!el)return;
+ el.innerHTML=user?('<span style=\'color:#22c55e\'>☁ '+((user.user_metadata&&user.user_metadata.username)||user.email)+'</span> <span id=\'syncdot\' style=\'color:#94a3b8;font-size:12px\'></span> <button class=\'reset\' onclick=\'signOut()\'>Çıkış</button>'):'';}
+async function refreshAuth(){
+ if(!sb){loginOverlay();renderAuth();return;}
+ var sess=null;try{var g=await sb.auth.getSession();sess=g.data.session;}catch(e){}
+ user=sess?sess.user:null;renderAuth();
+ if(user){hideLogin();await pullCloud();}else{loginOverlay();}}
+async function signOut(){if(sb)await sb.auth.signOut();user=null;renderAuth();loginOverlay();}
+async function pullCloud(){if(!sb||!user)return;
+ const {data,error}=await sb.from('user_state').select('prog,meta').eq('user_id',user.id).maybeSingle();
+ if(error){console.warn(error);return;}
+ if(data&&data.prog&&Object.keys(data.prog).length){const cp=data.prog,cm=data.meta||{};const merged={...prog};
+   for(const k in cp){if(!merged[k]||((cp[k].reps||0)>=(merged[k].reps||0)))merged[k]=cp[k];}
+   prog=merged;save(false);
+   if(cm&&cm.newLimit!==undefined){meta=Object.assign({},meta,cm);saveMeta(false);}
+ } else {pushCloud();}
+ build();}
+function pushCloud(){if(!sb||!user)return;clearTimeout(pushT);pushT=setTimeout(async()=>{
+   const dot=document.getElementById('syncdot');if(dot)dot.textContent='⟳';
+   const {error}=await sb.from('user_state').upsert({user_id:user.id,prog,meta,updated_at:new Date().toISOString()});
+   if(dot)dot.textContent=error?'⚠ hata':'☁ kayıtlı';},800);}
+if(sb)sb.auth.onAuthStateChange((_e,sess)=>{user=sess?sess.user:null;renderAuth();if(user)hideLogin();else loginOverlay();});
+refreshAuth();alert('Kayıt tamam, giriş yapıldı. İlerlemen buluta kaydediliyor.');}}
 async function signIn(){if(!sb){alert('Sunucuya bağlanılamadı (çevrimdışı). Yayınlanan adresten aç.');return;}const u=aemv().trim().toLowerCase(),pw=apwv();const em=u.includes('@')?u:u+'@yokdil.app';const {error}=await sb.auth.signInWithPassword({email:em,password:pw});
  if(error){alert('Giriş hatası: '+error.message);return;}await refreshAuth();}
 async function signOut(){if(sb)await sb.auth.signOut();user=null;renderAuth();}
